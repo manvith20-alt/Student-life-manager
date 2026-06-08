@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Attendance Tracker – Student Life Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <i class="fas fa-graduation-cap"></i>
+      <span>Student Life Manager</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+      <li><a href="{{ url_for('expense') }}"><i class="fas fa-wallet"></i> Expenses</a></li>
+      <li><a href="{{ url_for('assignment') }}"><i class="fas fa-book-open"></i> Assignments</a></li>
+      <li><a href="{{ url_for('attendance') }}" class="active"><i class="fas fa-chart-bar"></i> Attendance</a></li>
+      <li><a href="{{ url_for('planner') }}"><i class="fas fa-calendar-alt"></i> Planner</a></li>
+    </ul>
+    <button class="nav-toggle" id="navToggle">
+      <i class="fas fa-bars"></i>
+    </button>
+  </nav>
+
+  <!-- PAGE HEADER -->
+  <section class="page-header">
+    <div class="page-header-content">
+      <h1><i class="fas fa-chart-bar"></i> Attendance Tracker</h1>
+      <p>Monitor your subject-wise attendance and stay above 75%.</p>
+    </div>
+  </section>
+
+  <main class="main-container">
+
+    <!-- OVERALL SUMMARY CARDS -->
+    <div class="summary-row">
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-calendar-check"></i></div>
+        <div>
+          <div class="summary-value">{{ total_all }}</div>
+          <div class="summary-label">Total Classes</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-user-check"></i></div>
+        <div>
+          <div class="summary-value">{{ present_all }}</div>
+          <div class="summary-label">Classes Attended</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-user-times"></i></div>
+        <div>
+          <div class="summary-value">{{ total_all - present_all }}</div>
+          <div class="summary-label">Classes Missed</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon
+          {% if overall_label == 'Good' %}icon-green
+          {% elif overall_label == 'Warning' %}icon-orange
+          {% else %}icon-red{% endif %}">
+          <i class="fas fa-percent"></i>
+        </div>
+        <div>
+          <div class="summary-value
+            {% if overall_label == 'Good' %}text-green
+            {% elif overall_label == 'Warning' %}text-orange
+            {% else %}text-red{% endif %}">
+            {{ overall_pct }}%
+          </div>
+          <div class="summary-label">Overall Attendance</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OVERALL PROGRESS BAR -->
+    <div class="budget-bar-wrap">
+      <div class="budget-bar-header">
+        <span>Overall Attendance</span>
+        <span class="
+          {% if overall_label == 'Good' %}text-green
+          {% elif overall_label == 'Warning' %}text-orange
+          {% else %}text-red{% endif %}">
+          {{ overall_pct }}% —
+          <strong>{{ overall_label }}</strong>
+        </span>
+      </div>
+      <div class="budget-bar-bg">
+        <div class="budget-bar-fill
+          {% if overall_label == 'Good' %}bar-green
+          {% elif overall_label == 'Warning' %}bar-orange
+          {% else %}bar-red{% endif %}"
+          style="width: {{ overall_pct }}%;">
+        </div>
+      </div>
+      <!-- 75% threshold marker -->
+      <div class="threshold-marker" style="left: 75%;">
+        <span class="threshold-label">75% min</span>
+      </div>
+    </div>
+
+    <!-- LOW ATTENDANCE ALERT -->
+    {% if overall_pct > 0 and overall_pct < 75 %}
+    <div class="alert alert-danger">
+      <i class="fas fa-exclamation-circle"></i>
+      <strong>Attendance Alert!</strong> Your overall attendance is <strong>{{ overall_pct }}%</strong>,
+      which is below the required 75%. You must attend more classes to avoid being barred from exams!
+    </div>
+    {% endif %}
+
+    <div class="two-col-layout">
+
+      <!-- ADD ATTENDANCE FORM -->
+      <section class="form-card">
+        <h2 class="section-title"><i class="fas fa-plus-circle"></i> Add Attendance</h2>
+        <form method="POST" action="{{ url_for('attendance') }}">
+          <div class="form-group">
+            <label for="subject">Subject</label>
+            <input type="text" id="subject" name="subject"
+                   placeholder="e.g. Mathematics" required
+                   list="subject-suggestions"/>
+            <datalist id="subject-suggestions">
+              {% for s in subject_stats %}
+              <option value="{{ s['subject'] }}">
+              {% endfor %}
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label for="date">Date</label>
+            <input type="date" id="date" name="date"/>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <div class="radio-group">
+              <label class="radio-label radio-present">
+                <input type="radio" name="status" value="Present" checked/>
+                <span><i class="fas fa-check-circle"></i> Present</span>
+              </label>
+              <label class="radio-label radio-absent">
+                <input type="radio" name="status" value="Absent"/>
+                <span><i class="fas fa-times-circle"></i> Absent</span>
+              </label>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">
+            <i class="fas fa-plus"></i> Add Record
+          </button>
+        </form>
+      </section>
+
+      <!-- SUBJECT-WISE STATS -->
+      <section class="form-card">
+        <h2 class="section-title"><i class="fas fa-book"></i> Subject-wise Summary</h2>
+        {% if subject_stats %}
+          <div class="subject-list">
+            {% for s in subject_stats %}
+            <div class="subject-stat-item">
+              <div class="subject-stat-header">
+                <span class="subject-name">{{ s['subject'] }}</span>
+                <span class="badge
+                  {% if s['label'] == 'Good' %}badge-good
+                  {% elif s['label'] == 'Warning' %}badge-warning
+                  {% else %}badge-critical{% endif %}">
+                  {{ s['label'] }}
+                </span>
+              </div>
+              <div class="subject-stat-meta">
+                <span>{{ s['present'] }}/{{ s['total'] }} classes</span>
+                <span class="
+                  {% if s['label'] == 'Good' %}text-green
+                  {% elif s['label'] == 'Warning' %}text-orange
+                  {% else %}text-red{% endif %}">
+                  <strong>{{ s['pct'] }}%</strong>
+                </span>
+              </div>
+              <div class="budget-bar-bg" style="margin-top:0.4rem;">
+                <div class="budget-bar-fill
+                  {% if s['label'] == 'Good' %}bar-green
+                  {% elif s['label'] == 'Warning' %}bar-orange
+                  {% else %}bar-red{% endif %}"
+                  style="width: {{ s['pct'] }}%;">
+                </div>
+              </div>
+              <!-- Classes needed to reach 75% if critical -->
+              {% if s['pct'] < 75 %}
+                {% set needed = ((0.75 * s['total'] - s['present']) / 0.25) | int + 1 %}
+                <p class="need-classes">
+                  <i class="fas fa-info-circle"></i>
+                  Attend <strong>{{ needed }}</strong> consecutive class(es) to reach 75%.
+                </p>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <i class="fas fa-book"></i>
+            <p>No subjects recorded yet. Add attendance to see stats.</p>
+          </div>
+        {% endif %}
+      </section>
+
+    </div>
+
+    <!-- ATTENDANCE HISTORY TABLE -->
+    <section class="table-card">
+      <div class="table-header-row">
+        <h2 class="section-title"><i class="fas fa-history"></i> Attendance History</h2>
+        <div class="table-controls">
+          <input type="text" id="attSearch" placeholder="🔍 Search…" class="search-input"/>
+          <select id="filterAttStatus" class="search-input" style="width:auto;">
+            <option value="all">All</option>
+            <option value="Present">Present</option>
+            <option value="Absent">Absent</option>
+          </select>
+        </div>
+      </div>
+
+      {% if history %}
+      <div class="table-responsive">
+        <table class="data-table" id="attTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Subject</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in history %}
+            <tr class="{% if r['status'] == 'Absent' %}row-absent{% endif %}">
+              <td>{{ loop.index }}</td>
+              <td>{{ r['date'] }}</td>
+              <td><span class="subject-tag">{{ r['subject'] }}</span></td>
+              <td>
+                {% if r['status'] == 'Present' %}
+                  <span class="badge badge-good">
+                    <i class="fas fa-check-circle"></i> Present
+                  </span>
+                {% else %}
+                  <span class="badge badge-critical">
+                    <i class="fas fa-times-circle"></i> Absent
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{{ url_for('delete_attendance', rid=r['id']) }}"
+                   class="btn-delete" title="Delete"
+                   onclick="return confirm('Delete this attendance record?')">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="empty-state">
+          <i class="fas fa-calendar-times"></i>
+          <p>No attendance records yet. Start marking attendance above!</p>
+        </div>
+      {% endif %}
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Student Life Manager &copy; 2025 &nbsp;|&nbsp; Built with Flask &amp; SQLite</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script>
+    // Default date to today
+    const dateInput = document.getElementById('date');
+    if (dateInput && !dateInput.value) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    // Live search + status filter for history table
+    function filterAtt() {
+      const q      = document.getElementById('attSearch').value.toLowerCase();
+      const status = document.getElementById('filterAttStatus').value;
+      document.querySelectorAll('#attTable tbody tr').forEach(row => {
+        const text      = row.textContent.toLowerCase();
+        const rowStatus = row.classList.contains('row-absent') ? 'Absent' : 'Present';
+        const matchQ    = text.includes(q);
+        const matchS    = status === 'all' || rowStatus === status;
+        row.style.display = matchQ && matchS ? '' : 'none';
+      });
+    }
+
+    document.getElementById('attSearch').addEventListener('input', filterAtt);
+    document.getElementById('filterAttStatus').addEventListener('change', filterAtt);
+  </script>
+</body>
+</html>

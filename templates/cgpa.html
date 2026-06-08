@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CGPA Calculator – Student Life Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    /* ── CGPA-specific styles ── */
+    .cgpa-hero-stat {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3rem;
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-xl);
+      padding: 2rem 2.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow-md);
+      flex-wrap: wrap;
+    }
+
+    .cgpa-big-number {
+      text-align: center;
+    }
+    .cgpa-big-number .big-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(3rem, 8vw, 5rem);
+      font-weight: 700;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--blue-600), var(--blue-400));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .cgpa-big-number .big-label {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-top: .35rem;
+    }
+
+    .cgpa-divider {
+      width: 1px;
+      height: 80px;
+      background: var(--gray-200);
+    }
+
+    .cgpa-meta-stats {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .cgpa-meta-item { text-align: center; }
+    .cgpa-meta-item .meta-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+    .cgpa-meta-item .meta-label {
+      font-size: .78rem;
+      color: var(--gray-500);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-top: .2rem;
+    }
+
+    .performance-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .4rem 1.1rem;
+      border-radius: 99px;
+      font-size: .88rem;
+      font-weight: 700;
+      margin-top: .6rem;
+    }
+    .perf-outstanding { background: #fef9c3; color: #92400e; }
+    .perf-excellent   { background: var(--green-100); color: var(--green-600); }
+    .perf-good        { background: var(--blue-50);   color: var(--blue-700); }
+    .perf-average     { background: var(--orange-100);color: var(--orange-600);}
+    .perf-satisfactory{ background: var(--gray-100);  color: var(--gray-600); }
+    .perf-poor        { background: var(--red-100);   color: var(--red-600);  }
+    .perf-na          { background: var(--gray-100);  color: var(--gray-400); }
+
+    /* GPA scale bar */
+    .gpa-scale-wrap {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-md);
+      padding: 1.1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .gpa-scale-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: .6rem;
+    }
+    .gpa-scale-track {
+      position: relative;
+      height: 14px;
+      border-radius: 99px;
+      background: linear-gradient(90deg,
+        #ef4444 0%,
+        #f97316 25%,
+        #eab308 45%,
+        #3b82f6 65%,
+        #22c55e 85%,
+        #16a34a 100%);
+    }
+    .gpa-scale-pointer {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      background: var(--white);
+      border: 3px solid var(--gray-800);
+      border-radius: 50%;
+      transition: left .8s cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    }
+    .gpa-scale-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: .7rem;
+      color: var(--gray-400);
+      margin-top: .4rem;
+      font-weight: 600;
+    }
+
+    /* Grade reference table */
+    .grade-ref-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: .5rem;
+      margin-top: .75rem;
+    }
+    .grade-ref-item {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-sm);
+      padding: .5rem .6rem;
+      text-align: center;
+    }
+    .grade-ref-item .gr-grade {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--blue-700);
+    }
+    .grade-ref-item .gr-point {
+      font-size: .75rem;
+      color: var(--gray-500);
+      font-weight: 600;
+      margin-top: .1rem;
+    }
+
+    /* Semester accordion card */
+    .semester-card {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      margin-bottom: 1.25rem;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      animation: fadeInUp .35s ease both;
+    }
+
+    .semester-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.4rem;
+      cursor: pointer;
+      user-select: none;
+      background: var(--blue-50);
+      border-bottom: 1px solid var(--blue-100);
+      gap: .75rem;
+      flex-wrap: wrap;
+      transition: background var(--transition);
+    }
+    .semester-header:hover { background: var(--blue-100); }
+
+    .sem-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--blue-800);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .sem-meta {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+    .sem-sgpa-badge {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--blue-700);
+      background: var(--white);
+      border: 1px solid var(--blue-200);
+      border-radius: 99px;
+      padding: .2rem .75rem;
+    }
+    .sem-credits-badge {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--gray-500);
+      background: var(--gray-100);
+      border-radius: 99px;
+      padding: .2rem .65rem;
+    }
+    .sem-toggle-icon {
+      color: var(--blue-500);
+      font-size: .9rem;
+      transition: transform .3s ease;
+      flex-shrink: 0;
+    }
+    .semester-card.open .sem-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    .semester-body {
+      display: none;
+      padding: 1.1rem 1.4rem;
+    }
+    .semester-card.open .semester-body { display: block; }
+
+    /* Subject rows inside semester */
+    .subject-row {
+      display: grid;
+      grid-template-columns: 2fr 80px 80px 70px 40px;
+      gap: .6rem;
+      align-items: center;
+      padding: .55rem .5rem;
+      border-bottom: 1px solid var(--gray-100);
+      font-size: .87rem;
+    }
+    .subject-row:last-of-type { border-bottom: none; }
+    .subject-row .sr-name  { font-weight: 600; color: var(--gray-800); }
+    .subject-row .sr-credit{ color: var(--gray-600); font-weight: 500; text-align: center; }
+    .subject-row .sr-grade {
+      text-align: center;
+      font-weight: 700;
+      color: var(--blue-700);
+      background: var(--blue-50);
+      border-radius: var(--radius-sm);
+      padding: .15rem .35rem;
+    }
+    .subject-row .sr-gp    { color: var(--gray-500); text-align: center; font-size: .82rem; }
+    .subject-row .sr-del   { text-align: center; }
+
+    .subject-row-header {
+      display: grid;
+      grid-template-columns: 2fr 80px 80px 70px 40px;
+      gap: .6rem;
+      padding: .35rem .5rem;
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--gray-400);
+      border-bottom: 2px solid var(--gray-200);
+      margin-bottom: .25rem;
+    }
+    .subject-row-header span { text-align: center; }
+    .subject-row-header span:first-child { text-align: left; }
+
+    .sem-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .75rem .5rem 0;
+      border-top: 2px solid var(--gray-100);
+      margin-top: .5rem;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+    .sem-footer-sgpa {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+    .sem-footer-sgpa span { color: var(--blue-600); font-size: 1.15rem; }
+
+    /* Delete semester button */
+    .btn-del-sem {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      background: var(--red-100);
+      color: var(--red-600);
+      border: 1px solid var(--red-500);
+      border-radius: var(--radius-sm);
+      padding: .3rem .75rem;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: background var(--transition);
+    }
+    .btn-del-sem:hover { background: var(--red-500); color: var(--white); }
+
+    /* SGPA history chart bars */
+    .sgpa-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: .6rem;
+      height: 90px;
+      padding: .5rem 0 0;
+    }
+    .sgpa-bar-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .3rem;
+      flex: 1;
+    }
+    .sgpa-bar-val {
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--blue-700);
+    }
+    .sgpa-bar {
+      width: 100%;
+      border-radius: 4px 4px 0 0;
+      background: linear-gradient(180deg, var(--blue-400), var(--blue-600));
+      transition: height .7s cubic-bezier(.4,0,.2,1);
+      min-height: 4px;
+    }
+    .sgpa-bar-label {
+      font-size: .7rem;
+      color: var(--gray-500);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      .cgpa-divider { display: none; }
+      .cgpa-hero-stat { gap: 1.5rem; padding: 1.25rem 1rem; }
+      .subject-row,
+      .subject-row-header {
+        grid-template-columns: 2fr 60px 60px 55px 36px;
+        gap: .35rem;
+        font-size: .8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <i class="fas fa-graduation-cap"></i>
+      <span>Student Life Manager</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+      <li><a href="{{ url_for('expense') }}"><i class="fas fa-wallet"></i> Expenses</a></li>
+      <li><a href="{{ url_for('assignment') }}"><i class="fas fa-book-open"></i> Assignments</a></li>
+      <li><a href="{{ url_for('attendance') }}"><i class="fas fa-chart-bar"></i> Attendance</a></li>
+      <li><a href="{{ url_for('planner') }}"><i class="fas fa-calendar-alt"></i> Planner</a></li>
+      <li><a href="{{ url_for('cgpa') }}" class="active"><i class="fas fa-star"></i> CGPA</a></li>
+    </ul>
+    <button class="nav-toggle" id="navToggle">
+      <i class="fas fa-bars"></i>
+    </button>
+  </nav>
+
+  <!-- PAGE HEADER -->
+  <section class="page-header">
+    <div class="page-header-content">
+      <h1><i class="fas fa-star"></i> CGPA Calculator</h1>
+      <p>Track your semester-wise SGPA and calculate your cumulative CGPA.</p>
+    </div>
+  </section>
+
+  <main class="main-container">
+
+    <!-- CGPA HERO STAT -->
+    <div class="cgpa-hero-stat">
+      <div class="cgpa-big-number">
+        <div class="big-val" id="cgpaDisplay">
+          {{ "%.2f"|format(cgpa_val) }}
+        </div>
+        <div class="big-label">Cumulative GPA</div>
+        <!-- Performance pill -->
+        {% set lbl = overall_label %}
+        <div class="performance-pill
+          {% if lbl == 'Outstanding'   %}perf-outstanding
+          {% elif lbl == 'Excellent'   %}perf-excellent
+          {% elif lbl == 'Good'        %}perf-good
+          {% elif lbl == 'Average'     %}perf-average
+          {% elif lbl == 'Satisfactory'%}perf-satisfactory
+          {% elif lbl == 'Poor'        %}perf-poor
+          {% else %}perf-na{% endif %}">
+          {% if lbl == 'Outstanding'    %}<i class="fas fa-trophy"></i>
+          {% elif lbl == 'Excellent'    %}<i class="fas fa-star"></i>
+          {% elif lbl == 'Good'         %}<i class="fas fa-thumbs-up"></i>
+          {% elif lbl == 'Average'      %}<i class="fas fa-minus-circle"></i>
+          {% elif lbl == 'Satisfactory' %}<i class="fas fa-check-circle"></i>
+          {% elif lbl == 'Poor'         %}<i class="fas fa-exclamation-triangle"></i>
+          {% else %}<i class="fas fa-question-circle"></i>{% endif %}
+          {{ lbl }}
+        </div>
+      </div>
+
+      <div class="cgpa-divider"></div>
+
+      <div class="cgpa-meta-stats">
+        <div class="cgpa-meta-item">
+          <div class="meta-val">{{ semesters | length }}</div>
+          <div class="meta-label">Semesters</div>
+        </div>
+        <div class="cgpa-meta-item">
+          <div class="meta-val">{{ overall_credits | int }}</div>
+          <div class="meta-label">Total Credits</div>
+        </div>
+        <div class="cgpa-meta-item">
+          <div class="meta-val">
+            {{ total_subject_count }}
+          </div>
+          <div class="meta-label">Subjects</div>
+        </div>
+        {% if semesters %}
+        <div class="cgpa-meta-item">
+          <div class="meta-val">{{ "%.2f"|format(semesters[-1].sgpa) }}</div>
+          <div class="meta-label">Latest SGPA</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- GPA SCALE BAR -->
+    <div class="gpa-scale-wrap">
+      <div class="gpa-scale-header">
+        <span><i class="fas fa-sliders-h"></i> GPA Scale</span>
+        <span>Your CGPA: <strong>{{ "%.2f"|format(cgpa_val) }} / 10.0</strong></span>
+      </div>
+      <div class="gpa-scale-track">
+        <div class="gpa-scale-pointer" id="gpaPointer"
+             style="left: {{ (cgpa_val / 10 * 100) | round(1) }}%;">
+        </div>
+      </div>
+      <div class="gpa-scale-labels">
+        <span>0 — Poor</span>
+        <span>4 — Pass</span>
+        <span>6 — Avg</span>
+        <span>8 — Good</span>
+        <span>10 — Outstanding</span>
+      </div>
+    </div>
+
+    <!-- SGPA TREND CHART -->
+    {% if semesters | length > 1 %}
+    <div class="table-card" style="margin-bottom:1.5rem;">
+      <h2 class="section-title">
+        <i class="fas fa-chart-line"></i> SGPA Trend
+      </h2>
+      <div class="sgpa-chart" id="sgpaChart">
+        {% for sem in semesters %}
+        {% set bar_h = ((sem.sgpa / 10) * 70) | round(1) %}
+        <div class="sgpa-bar-col">
+          <span class="sgpa-bar-val">{{ "%.2f"|format(sem.sgpa) }}</span>
+          <div class="sgpa-bar" style="height: {{ bar_h }}px;"></div>
+          <span class="sgpa-bar-label">Sem {{ sem.number }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="two-col-layout">
+
+      <!-- ADD SUBJECT FORM -->
+      <section class="form-card">
+        <h2 class="section-title">
+          <i class="fas fa-plus-circle"></i> Add Subject
+        </h2>
+        <form method="POST" action="{{ url_for('cgpa') }}">
+          <input type="hidden" name="action" value="add_subject"/>
+
+          <div class="form-group">
+            <label for="semester">Semester</label>
+            <input type="number" id="semester" name="semester"
+                   min="1" max="12"
+                   value="{{ next_sem }}" required/>
+          </div>
+
+          <div class="form-group">
+            <label for="subject">Subject Name</label>
+            <input type="text" id="subject" name="subject"
+                   placeholder="e.g. Data Structures" required/>
+          </div>
+
+          <div class="form-group">
+            <label for="credits">Credits</label>
+            <select id="credits" name="credits" required>
+              <option value="" disabled selected>Select credits</option>
+              <option value="1">1 Credit</option>
+              <option value="2">2 Credits</option>
+              <option value="3">3 Credits</option>
+              <option value="4">4 Credits</option>
+              <option value="5">5 Credits</option>
+              <option value="6">6 Credits</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="grade">Grade</label>
+            <select id="grade" name="grade" required>
+              <option value="" disabled selected>Select grade</option>
+              {% for g, pt in grade_points.items() %}
+              <option value="{{ g }}">{{ g }} — {{ pt }} points
+                {% if g == 'O'  %} (Outstanding)
+                {% elif g == 'A+' %} (Excellent)
+                {% elif g == 'A'  %} (Very Good)
+                {% elif g == 'B+' %} (Good)
+                {% elif g == 'B'  %} (Above Average)
+                {% elif g == 'C'  %} (Average)
+                {% elif g == 'P'  %} (Pass)
+                {% elif g == 'F'  %} (Fail)
+                {% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Live grade point preview -->
+          <div id="gradePreview" style="
+            display:none;
+            background: var(--blue-50);
+            border: 1px solid var(--blue-200);
+            border-radius: var(--radius-sm);
+            padding: .55rem .85rem;
+            font-size: .85rem;
+            color: var(--blue-700);
+            font-weight: 600;
+            margin-bottom: 1rem;">
+          </div>
+
+          <button type="submit" class="btn-primary">
+            <i class="fas fa-plus"></i> Add Subject
+          </button>
+        </form>
+      </section>
+
+      <!-- GRADE REFERENCE CARD -->
+      <section class="form-card">
+        <h2 class="section-title">
+          <i class="fas fa-table"></i> Grade Reference
+        </h2>
+        <div class="grade-ref-grid">
+          {% set grade_desc = {
+            'O':'Outstanding','A+':'Excellent','A':'Very Good',
+            'B+':'Good','B':'Above Avg','C':'Average','P':'Pass','F':'Fail'
+          } %}
+          {% for g, pt in grade_points.items() %}
+          <div class="grade-ref-item">
+            <div class="gr-grade">{{ g }}</div>
+            <div class="gr-point">{{ pt }} pts</div>
+            <div style="font-size:.68rem;color:var(--gray-400);margin-top:.1rem;">
+              {{ grade_desc.get(g,'') }}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Performance labels reference -->
+        <div style="margin-top:1.25rem;">
+          <p style="font-size:.78rem;font-weight:700;color:var(--gray-500);
+                    text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem;">
+            Performance Scale
+          </p>
+          <div style="display:flex;flex-direction:column;gap:.35rem;">
+            {% set perf_scale = [
+              ('Outstanding',  '9.0 – 10.0', 'perf-outstanding'),
+              ('Excellent',    '8.0 – 8.9',  'perf-excellent'),
+              ('Good',         '7.0 – 7.9',  'perf-good'),
+              ('Average',      '6.0 – 6.9',  'perf-average'),
+              ('Satisfactory', '5.0 – 5.9',  'perf-satisfactory'),
+              ('Poor',         'Below 5.0',  'perf-poor')
+            ] %}
+            {% for label, rng, cls in perf_scale %}
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span class="performance-pill {{ cls }}" style="padding:.2rem .7rem;font-size:.75rem;">
+                {{ label }}
+              </span>
+              <span style="font-size:.8rem;color:var(--gray-500);font-weight:600;">{{ rng }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- SEMESTER-WISE RECORDS -->
+    <h2 class="section-title" style="margin-bottom:1rem;">
+      <i class="fas fa-layer-group"></i> Semester Records
+    </h2>
+
+    {% if semesters %}
+      {% for sem in semesters %}
+      <div class="semester-card {% if loop.last %}open{% endif %}"
+           id="semCard{{ sem.number }}">
+
+        <!-- Header (clickable toggle) -->
+        <div class="semester-header"
+             onclick="toggleSemester({{ sem.number }})">
+          <div class="sem-title">
+            <i class="fas fa-book-open"></i>
+            Semester {{ sem.number }}
+          </div>
+          <div class="sem-meta">
+            <span class="sem-sgpa-badge">
+              SGPA: {{ "%.2f"|format(sem.sgpa) }}
+            </span>
+            <span class="sem-credits-badge">
+              {{ sem.total_credits | int }} Credits
+            </span>
+            <span class="performance-pill
+              {% set l = sem.label %}
+              {% if l == 'Outstanding'    %}perf-outstanding
+              {% elif l == 'Excellent'    %}perf-excellent
+              {% elif l == 'Good'         %}perf-good
+              {% elif l == 'Average'      %}perf-average
+              {% elif l == 'Satisfactory' %}perf-satisfactory
+              {% elif l == 'Poor'         %}perf-poor
+              {% else %}perf-na{% endif %}"
+              style="padding:.2rem .7rem;font-size:.75rem;">
+              {{ sem.label }}
+            </span>
+            <i class="fas fa-chevron-down sem-toggle-icon"></i>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="semester-body">
+
+          <!-- Subject rows -->
+          <div class="subject-row-header">
+            <span>Subject</span>
+            <span>Credits</span>
+            <span>Grade</span>
+            <span>Pts</span>
+            <span></span>
+          </div>
+
+          {% for subj in sem.subjects %}
+          <div class="subject-row">
+            <span class="sr-name">{{ subj['subject'] }}</span>
+            <span class="sr-credit">{{ subj['credits'] | int }}</span>
+            <span class="sr-grade">{{ subj['grade'] }}</span>
+            <span class="sr-gp">{{ subj['grade_point'] }}</span>
+            <span class="sr-del">
+              <form method="POST" action="{{ url_for('cgpa') }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Delete {{ subj['subject'] }}?')">
+                <input type="hidden" name="action"     value="delete_subject"/>
+                <input type="hidden" name="subject_id" value="{{ subj['id'] }}"/>
+                <button type="submit" class="btn-delete"
+                        style="padding:.25rem .5rem;font-size:.75rem;">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </form>
+            </span>
+          </div>
+          {% endfor %}
+
+          <!-- Semester footer -->
+          <div class="sem-footer">
+            <div class="sem-footer-sgpa">
+              SGPA: <span>{{ "%.2f"|format(sem.sgpa) }}</span>
+              &nbsp;|&nbsp; Credits: <span>{{ sem.total_credits | int }}</span>
+            </div>
+            <form method="POST" action="{{ url_for('cgpa') }}"
+                  onsubmit="return confirm('Delete all subjects in Semester {{ sem.number }}?')">
+              <input type="hidden" name="action"       value="delete_semester"/>
+              <input type="hidden" name="semester_num" value="{{ sem.number }}"/>
+              <button type="submit" class="btn-del-sem">
+                <i class="fas fa-trash-alt"></i> Delete Semester
+              </button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+      {% endfor %}
+
+    {% else %}
+      <div class="empty-state">
+        <i class="fas fa-star"></i>
+        <p>No semester records yet. Add your first subject using the form above!</p>
+      </div>
+    {% endif %}
+
+  </main>
+
+  <footer class="footer">
+    <p>Student Life Manager &copy; 2025 &nbsp;|&nbsp; Built with Flask &amp; SQLite</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script>
+    /* ── Semester accordion toggle ── */
+    function toggleSemester(num) {
+      const card = document.getElementById('semCard' + num);
+      if (card) card.classList.toggle('open');
+    }
+
+    /* ── Grade point live preview ── */
+    const gradeSelect   = document.getElementById('grade');
+    const creditSelect  = document.getElementById('credits');
+    const gradePreview  = document.getElementById('gradePreview');
+
+    const gradePoints = {
+      'O': 10.0, 'A+': 9.0, 'A': 8.0,
+      'B+': 7.0, 'B': 6.0, 'C': 5.0,
+      'P': 4.0,  'F': 0.0
+    };
+
+    function updatePreview() {
+      const g  = gradeSelect.value;
+      const cr = parseFloat(creditSelect.value);
+      if (g && cr) {
+        const gp          = gradePoints[g] || 0;
+        const contribution = (gp * cr).toFixed(1);
+        gradePreview.style.display = 'block';
+        gradePreview.innerHTML =
+          '<i class="fas fa-info-circle"></i> ' +
+          'Grade Point: <strong>' + gp + '</strong> &nbsp;|&nbsp; ' +
+          'Credits: <strong>' + cr + '</strong> &nbsp;|&nbsp; ' +
+          'Contribution: <strong>' + contribution + '</strong>';
+      } else {
+        gradePreview.style.display = 'none';
+      }
+    }
+
+    if (gradeSelect)  gradeSelect.addEventListener('change', updatePreview);
+    if (creditSelect) creditSelect.addEventListener('change', updatePreview);
+
+    /* ── Animate GPA pointer on load ── */
+    window.addEventListener('load', function () {
+      const pointer = document.getElementById('gpaPointer');
+      if (pointer) {
+        const target = pointer.style.left;
+        pointer.style.left = '0%';
+        setTimeout(function () {
+          pointer.style.transition = 'left 1s cubic-bezier(.4,0,.2,1)';
+          pointer.style.left = target;
+        }, 300);
+      }
+    });
+
+    /* ── Animate SGPA bars on load ── */
+    window.addEventListener('load', function () {
+      document.querySelectorAll('.sgpa-bar').forEach(function (bar) {
+        const target = bar.style.height;
+        bar.style.height = '0px';
+        setTimeout(function () {
+          bar.style.height = target;
+        }, 400);
+      });
+    });
+  </script>
+</body>
+</html>

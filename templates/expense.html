@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Expense Tracker – Student Life Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <i class="fas fa-graduation-cap"></i>
+      <span>Student Life Manager</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+      <li><a href="{{ url_for('expense') }}" class="active"><i class="fas fa-wallet"></i> Expenses</a></li>
+      <li><a href="{{ url_for('assignment') }}"><i class="fas fa-book-open"></i> Assignments</a></li>
+      <li><a href="{{ url_for('attendance') }}"><i class="fas fa-chart-bar"></i> Attendance</a></li>
+      <li><a href="{{ url_for('planner') }}"><i class="fas fa-calendar-alt"></i> Planner</a></li>
+    </ul>
+    <button class="nav-toggle" id="navToggle">
+      <i class="fas fa-bars"></i>
+    </button>
+  </nav>
+
+  <!-- PAGE HEADER -->
+  <section class="page-header">
+    <div class="page-header-content">
+      <h1><i class="fas fa-wallet"></i> Expense Tracker</h1>
+      <p>Track your daily spending and stay within budget.</p>
+    </div>
+  </section>
+
+  <main class="main-container">
+
+    <!-- SUMMARY CARDS -->
+    <div class="summary-row">
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-calendar-alt"></i></div>
+        <div>
+          <div class="summary-value">₹{{ "%.2f"|format(monthly_total) }}</div>
+          <div class="summary-label">Spent This Month</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon {% if remaining < 0 %}icon-red{% endif %}">
+          <i class="fas fa-piggy-bank"></i>
+        </div>
+        <div>
+          <div class="summary-value {% if remaining < 0 %}text-red{% endif %}">
+            ₹{{ "%.2f"|format(remaining) }}
+          </div>
+          <div class="summary-label">Remaining Budget</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-bullseye"></i></div>
+        <div>
+          <div class="summary-value">₹{{ "%.2f"|format(budget) }}</div>
+          <div class="summary-label">Monthly Budget</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUDGET PROGRESS BAR -->
+    {% set pct = [(monthly_total / budget * 100), 100] | min %}
+    <div class="budget-bar-wrap">
+      <div class="budget-bar-header">
+        <span>Budget Used</span>
+        <span>{{ "%.1f"|format(pct) }}%</span>
+      </div>
+      <div class="budget-bar-bg">
+        <div class="budget-bar-fill
+          {% if pct >= 100 %}bar-red
+          {% elif pct >= 75 %}bar-orange
+          {% else %}bar-blue{% endif %}"
+          style="width: {{ pct }}%;">
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col-layout">
+
+      <!-- ADD EXPENSE FORM -->
+      <section class="form-card">
+        <h2 class="section-title"><i class="fas fa-plus-circle"></i> Add Expense</h2>
+        <form method="POST" action="{{ url_for('expense') }}">
+          <div class="form-group">
+            <label for="amount">Amount (₹)</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01"
+                   placeholder="e.g. 150.00" required/>
+          </div>
+          <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" name="category" required>
+              <option value="" disabled selected>Select category</option>
+              <option value="Food">🍔 Food</option>
+              <option value="Travel">🚌 Travel</option>
+              <option value="Books">📚 Books</option>
+              <option value="Entertainment">🎬 Entertainment</option>
+              <option value="Other">📦 Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="description">Description (optional)</label>
+            <input type="text" id="description" name="description"
+                   placeholder="e.g. Lunch at canteen"/>
+          </div>
+          <div class="form-group">
+            <label for="date">Date</label>
+            <input type="date" id="date" name="date"/>
+          </div>
+          <button type="submit" class="btn-primary">
+            <i class="fas fa-plus"></i> Add Expense
+          </button>
+        </form>
+      </section>
+
+      <!-- CATEGORY BREAKDOWN -->
+      <section class="form-card">
+        <h2 class="section-title"><i class="fas fa-chart-pie"></i> This Month by Category</h2>
+        {% if cat_summary %}
+          <div class="cat-list">
+            {% set colors = {'Food':'#3b82f6','Travel':'#10b981','Books':'#f59e0b','Entertainment':'#8b5cf6','Other':'#ef4444'} %}
+            {% for row in cat_summary %}
+            {% set cat_pct = (row['total'] / monthly_total * 100) if monthly_total > 0 else 0 %}
+            <div class="cat-item">
+              <div class="cat-item-header">
+                <span class="cat-dot" style="background:{{ colors.get(row['category'],'#3b82f6') }}"></span>
+                <span class="cat-name">{{ row['category'] }}</span>
+                <span class="cat-amount">₹{{ "%.2f"|format(row['total']) }}</span>
+                <span class="cat-pct">{{ "%.1f"|format(cat_pct) }}%</span>
+              </div>
+              <div class="cat-bar-bg">
+                <div class="cat-bar-fill"
+                     style="width:{{ cat_pct }}%; background:{{ colors.get(row['category'],'#3b82f6') }}">
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <i class="fas fa-chart-pie"></i>
+            <p>No expenses recorded this month.</p>
+          </div>
+        {% endif %}
+      </section>
+
+    </div>
+
+    <!-- EXPENSE HISTORY TABLE -->
+    <section class="table-card">
+      <div class="table-header-row">
+        <h2 class="section-title"><i class="fas fa-history"></i> Expense History</h2>
+        <input type="text" id="expenseSearch" placeholder="🔍 Search expenses…" class="search-input"/>
+      </div>
+
+      {% if expenses %}
+      <div class="table-responsive">
+        <table class="data-table" id="expenseTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in expenses %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ e['date'] }}</td>
+              <td>
+                <span class="cat-badge cat-{{ e['category'] | lower }}">
+                  {% if e['category'] == 'Food' %}🍔
+                  {% elif e['category'] == 'Travel' %}🚌
+                  {% elif e['category'] == 'Books' %}📚
+                  {% elif e['category'] == 'Entertainment' %}🎬
+                  {% else %}📦{% endif %}
+                  {{ e['category'] }}
+                </span>
+              </td>
+              <td>{{ e['description'] or '—' }}</td>
+              <td class="amount-cell">₹{{ "%.2f"|format(e['amount']) }}</td>
+              <td>
+                <a href="{{ url_for('delete_expense', eid=e['id']) }}"
+                   class="btn-delete"
+                   onclick="return confirm('Delete this expense?')">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="empty-state">
+          <i class="fas fa-receipt"></i>
+          <p>No expenses added yet. Start by adding one above!</p>
+        </div>
+      {% endif %}
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Student Life Manager &copy; 2025 &nbsp;|&nbsp; Built with Flask &amp; SQLite</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script>
+    // Set today's date as default for date input
+    const dateInput = document.getElementById('date');
+    if (dateInput && !dateInput.value) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    // Live search filter for expense table
+    document.getElementById('expenseSearch').addEventListener('input', function () {
+      const q = this.value.toLowerCase();
+      document.querySelectorAll('#expenseTable tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Assignment Tracker – Student Life Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <i class="fas fa-graduation-cap"></i>
+      <span>Student Life Manager</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+      <li><a href="{{ url_for('expense') }}"><i class="fas fa-wallet"></i> Expenses</a></li>
+      <li><a href="{{ url_for('assignment') }}" class="active"><i class="fas fa-book-open"></i> Assignments</a></li>
+      <li><a href="{{ url_for('attendance') }}"><i class="fas fa-chart-bar"></i> Attendance</a></li>
+      <li><a href="{{ url_for('planner') }}"><i class="fas fa-calendar-alt"></i> Planner</a></li>
+    </ul>
+    <button class="nav-toggle" id="navToggle">
+      <i class="fas fa-bars"></i>
+    </button>
+  </nav>
+
+  <!-- PAGE HEADER -->
+  <section class="page-header">
+    <div class="page-header-content">
+      <h1><i class="fas fa-book-open"></i> Assignment Tracker</h1>
+      <p>Keep track of all your assignments and never miss a deadline.</p>
+    </div>
+  </section>
+
+  <main class="main-container">
+
+    <!-- SUMMARY CARDS -->
+    {% set total      = assignments | length %}
+    {% set completed  = assignments | selectattr('status','equalto','Completed') | list | length %}
+    {% set pending    = total - completed %}
+    {% set overdue    = assignments | selectattr('status','equalto','Pending')
+                                    | selectattr('due_date','lt', today)
+                                    | list | length %}
+
+    <div class="summary-row">
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-list-alt"></i></div>
+        <div>
+          <div class="summary-value">{{ total }}</div>
+          <div class="summary-label">Total Assignments</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-hourglass-half"></i></div>
+        <div>
+          <div class="summary-value">{{ pending }}</div>
+          <div class="summary-label">Pending</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-check-circle"></i></div>
+        <div>
+          <div class="summary-value">{{ completed }}</div>
+          <div class="summary-label">Completed</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon {% if overdue > 0 %}icon-red{% endif %}">
+          <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <div>
+          <div class="summary-value {% if overdue > 0 %}text-red{% endif %}">{{ overdue }}</div>
+          <div class="summary-label">Overdue</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLETION PROGRESS BAR -->
+    {% if total > 0 %}
+    {% set comp_pct = (completed / total * 100) | round(1) %}
+    <div class="budget-bar-wrap">
+      <div class="budget-bar-header">
+        <span>Completion Progress</span>
+        <span>{{ comp_pct }}%</span>
+      </div>
+      <div class="budget-bar-bg">
+        <div class="budget-bar-fill
+          {% if comp_pct == 100 %}bar-green
+          {% elif comp_pct >= 50 %}bar-blue
+          {% else %}bar-orange{% endif %}"
+          style="width: {{ comp_pct }}%;">
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="two-col-layout">
+
+      <!-- ADD ASSIGNMENT FORM -->
+      <section class="form-card">
+        <h2 class="section-title"><i class="fas fa-plus-circle"></i> Add Assignment</h2>
+        <form method="POST" action="{{ url_for('assignment') }}">
+          <div class="form-group">
+            <label for="subject">Subject</label>
+            <input type="text" id="subject" name="subject"
+                   placeholder="e.g. Mathematics" required/>
+          </div>
+          <div class="form-group">
+            <label for="title">Assignment Title</label>
+            <input type="text" id="title" name="title"
+                   placeholder="e.g. Chapter 5 Problems" required/>
+          </div>
+          <div class="form-group">
+            <label for="due_date">Due Date</label>
+            <input type="date" id="due_date" name="due_date" required/>
+          </div>
+          <button type="submit" class="btn-primary">
+            <i class="fas fa-plus"></i> Add Assignment
+          </button>
+        </form>
+      </section>
+
+      <!-- OVERDUE ALERT PANEL -->
+      <section class="form-card">
+        <h2 class="section-title"><i class="fas fa-fire"></i> Overdue &amp; Due Soon</h2>
+        {% set urgent = [] %}
+        {% for a in assignments %}
+          {% if a['status'] == 'Pending' and a['due_date'] <= today %}
+            {% set _ = urgent.append(a) %}
+          {% endif %}
+        {% endfor %}
+
+        {% set soon = [] %}
+        {% for a in assignments %}
+          {% if a['status'] == 'Pending' and a['due_date'] > today %}
+            {% set _ = soon.append(a) %}
+          {% endif %}
+        {% endfor %}
+
+        {% if urgent %}
+          <div class="alert alert-danger" style="margin-bottom:1rem;">
+            <i class="fas fa-exclamation-circle"></i>
+            <strong>{{ urgent | length }} overdue assignment(s)!</strong>
+          </div>
+          {% for a in urgent %}
+          <div class="urgent-item">
+            <span class="urgent-subject">{{ a['subject'] }}</span>
+            <span class="urgent-title">{{ a['title'] }}</span>
+            <span class="badge badge-critical">Due: {{ a['due_date'] }}</span>
+          </div>
+          {% endfor %}
+        {% endif %}
+
+        {% if soon %}
+          <p class="soon-label"><i class="fas fa-clock"></i> Upcoming</p>
+          {% for a in soon[:4] %}
+          <div class="urgent-item">
+            <span class="urgent-subject">{{ a['subject'] }}</span>
+            <span class="urgent-title">{{ a['title'] }}</span>
+            <span class="badge badge-warning">Due: {{ a['due_date'] }}</span>
+          </div>
+          {% endfor %}
+        {% endif %}
+
+        {% if not urgent and not soon %}
+          <div class="empty-state">
+            <i class="fas fa-check-double"></i>
+            <p>All caught up! No pending assignments.</p>
+          </div>
+        {% endif %}
+      </section>
+
+    </div>
+
+    <!-- ASSIGNMENT TABLE -->
+    <section class="table-card">
+      <div class="table-header-row">
+        <h2 class="section-title"><i class="fas fa-list"></i> All Assignments</h2>
+        <div class="table-controls">
+          <input type="text" id="assignSearch" placeholder="🔍 Search…" class="search-input"/>
+          <select id="filterStatus" class="search-input" style="width:auto;">
+            <option value="all">All</option>
+            <option value="Pending">Pending</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      {% if assignments %}
+      <div class="table-responsive">
+        <table class="data-table" id="assignTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Subject</th>
+              <th>Title</th>
+              <th>Due Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in assignments %}
+            <tr class="{% if a['status'] == 'Completed' %}row-completed{% endif %}">
+              <td>{{ loop.index }}</td>
+              <td><span class="subject-tag">{{ a['subject'] }}</span></td>
+              <td>{{ a['title'] }}</td>
+              <td>
+                {% if a['status'] == 'Pending' and a['due_date'] < today %}
+                  <span class="text-red"><i class="fas fa-exclamation-triangle"></i> {{ a['due_date'] }}</span>
+                {% elif a['status'] == 'Pending' and a['due_date'] == today %}
+                  <span class="text-orange"><i class="fas fa-clock"></i> {{ a['due_date'] }}</span>
+                {% else %}
+                  {{ a['due_date'] }}
+                {% endif %}
+              </td>
+              <td>
+                {% if a['status'] == 'Completed' %}
+                  <span class="badge badge-good">✔ Completed</span>
+                {% elif a['due_date'] < today %}
+                  <span class="badge badge-critical">Overdue</span>
+                {% else %}
+                  <span class="badge badge-warning">Pending</span>
+                {% endif %}
+              </td>
+              <td class="action-cell">
+                {% if a['status'] == 'Pending' %}
+                <a href="{{ url_for('complete_assignment', aid=a['id']) }}"
+                   class="btn-complete" title="Mark Complete">
+                  <i class="fas fa-check"></i>
+                </a>
+                {% endif %}
+                <a href="{{ url_for('delete_assignment', aid=a['id']) }}"
+                   class="btn-delete" title="Delete"
+                   onclick="return confirm('Delete this assignment?')">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="empty-state">
+          <i class="fas fa-book-open"></i>
+          <p>No assignments added yet. Add your first assignment above!</p>
+        </div>
+      {% endif %}
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Student Life Manager &copy; 2025 &nbsp;|&nbsp; Built with Flask &amp; SQLite</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script>
+    // Default due date to tomorrow
+    const dueDateInput = document.getElementById('due_date');
+    if (dueDateInput && !dueDateInput.value) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      dueDateInput.value = tomorrow.toISOString().split('T')[0];
+    }
+
+    // Live search + status filter
+    function filterTable() {
+      const q      = document.getElementById('assignSearch').value.toLowerCase();
+      const status = document.getElementById('filterStatus').value;
+      document.querySelectorAll('#assignTable tbody tr').forEach(row => {
+        const text      = row.textContent.toLowerCase();
+        const rowStatus = row.querySelector('.badge') ? row.querySelector('.badge').textContent.trim() : '';
+        const matchQ    = text.includes(q);
+        const matchS    = status === 'all' ||
+                          (status === 'Pending'   && (rowStatus.includes('Pending') || rowStatus.includes('Overdue'))) ||
+                          (status === 'Completed' && rowStatus.includes('Completed'));
+        row.style.display = matchQ && matchS ? '' : 'none';
+      });
+    }
+
+    document.getElementById('assignSearch').addEventListener('input', filterTable);
+    document.getElementById('filterStatus').addEventListener('change', filterTable);
+  </script>
+</body>
+</html>

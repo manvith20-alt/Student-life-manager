@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Study Planner – Student Life Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <i class="fas fa-graduation-cap"></i>
+      <span>Student Life Manager</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+      <li><a href="{{ url_for('expense') }}"><i class="fas fa-wallet"></i> Expenses</a></li>
+      <li><a href="{{ url_for('assignment') }}"><i class="fas fa-book-open"></i> Assignments</a></li>
+      <li><a href="{{ url_for('attendance') }}"><i class="fas fa-chart-bar"></i> Attendance</a></li>
+      <li><a href="{{ url_for('planner') }}" class="active"><i class="fas fa-calendar-alt"></i> Planner</a></li>
+    </ul>
+    <button class="nav-toggle" id="navToggle">
+      <i class="fas fa-bars"></i>
+    </button>
+  </nav>
+
+  <!-- PAGE HEADER -->
+  <section class="page-header">
+    <div class="page-header-content">
+      <h1><i class="fas fa-calendar-alt"></i> Study Planner</h1>
+      <p>Organise your study tasks and crush your goals every day.</p>
+    </div>
+  </section>
+
+  <main class="main-container">
+
+    <!-- SUMMARY CARDS -->
+    {% set total_tasks     = all_tasks | length %}
+    {% set done_tasks      = all_tasks | selectattr('status','equalto','Completed') | list | length %}
+    {% set pending_count   = total_tasks - done_tasks %}
+    {% set today_count     = today_tasks | length %}
+
+    <div class="summary-row">
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-tasks"></i></div>
+        <div>
+          <div class="summary-value">{{ total_tasks }}</div>
+          <div class="summary-label">Total Tasks</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-hourglass-half"></i></div>
+        <div>
+          <div class="summary-value">{{ pending_count }}</div>
+          <div class="summary-label">Pending</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-check-circle"></i></div>
+        <div>
+          <div class="summary-value">{{ done_tasks }}</div>
+          <div class="summary-label">Completed</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon"><i class="fas fa-sun"></i></div>
+        <div>
+          <div class="summary-value">{{ today_count }}</div>
+          <div class="summary-label">Due Today</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLETION PROGRESS BAR -->
+    {% if total_tasks > 0 %}
+    {% set comp_pct = (done_tasks / total_tasks * 100) | round(1) %}
+    <div class="budget-bar-wrap">
+      <div class="budget-bar-header">
+        <span>Overall Completion</span>
+        <span>{{ comp_pct }}%</span>
+      </div>
+      <div class="budget-bar-bg">
+        <div class="budget-bar-fill
+          {% if comp_pct == 100 %}bar-green
+          {% elif comp_pct >= 50 %}bar-blue
+          {% else %}bar-orange{% endif %}"
+          style="width: {{ comp_pct }}%;">
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="two-col-layout">
+
+      <!-- ADD TASK FORM -->
+      <section class="form-card">
+        <h2 class="section-title"><i class="fas fa-plus-circle"></i> Add Study Task</h2>
+        <form method="POST" action="{{ url_for('planner') }}">
+          <div class="form-group">
+            <label for="task">Task Description</label>
+            <input type="text" id="task" name="task"
+                   placeholder="e.g. Revise Chapter 3 – Thermodynamics" required/>
+          </div>
+          <div class="form-group">
+            <label for="subject">Subject (optional)</label>
+            <input type="text" id="subject" name="subject"
+                   placeholder="e.g. Physics"
+                   list="subject-list"/>
+            <datalist id="subject-list">
+              {% set seen = [] %}
+              {% for t in all_tasks %}
+                {% if t['subject'] and t['subject'] not in seen %}
+                  <option value="{{ t['subject'] }}">
+                  {% set _ = seen.append(t['subject']) %}
+                {% endif %}
+              {% endfor %}
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label for="target_date">Target Date</label>
+            <input type="date" id="target_date" name="target_date" required/>
+          </div>
+          <button type="submit" class="btn-primary">
+            <i class="fas fa-plus"></i> Add Task
+          </button>
+        </form>
+      </section>
+
+      <!-- TODAY'S PLANNER -->
+      <section class="form-card">
+        <h2 class="section-title"><i class="fas fa-sun"></i> Today's Planner
+          <span class="today-date-badge">{{ today }}</span>
+        </h2>
+        {% if today_tasks %}
+          <div class="today-task-list">
+            {% for t in today_tasks %}
+            <div class="today-task-item {% if t['status'] == 'Completed' %}task-done{% endif %}">
+              <div class="today-task-left">
+                <span class="task-checkbox {% if t['status'] == 'Completed' %}checked{% endif %}">
+                  {% if t['status'] == 'Completed' %}
+                    <i class="fas fa-check-circle"></i>
+                  {% else %}
+                    <i class="far fa-circle"></i>
+                  {% endif %}
+                </span>
+                <div>
+                  <p class="today-task-name">{{ t['task'] }}</p>
+                  {% if t['subject'] %}
+                  <span class="subject-tag" style="font-size:0.75rem;">{{ t['subject'] }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="today-task-actions">
+                {% if t['status'] == 'Pending' %}
+                <a href="{{ url_for('complete_task', pid=t['id']) }}"
+                   class="btn-complete" title="Mark Complete">
+                  <i class="fas fa-check"></i>
+                </a>
+                {% endif %}
+                <a href="{{ url_for('delete_task', pid=t['id']) }}"
+                   class="btn-delete" title="Delete"
+                   onclick="return confirm('Delete this task?')">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <i class="fas fa-coffee"></i>
+            <p>No tasks scheduled for today. Add one or enjoy your free time!</p>
+          </div>
+        {% endif %}
+      </section>
+
+    </div>
+
+    <!-- UPCOMING TASKS -->
+    <section class="table-card">
+      <h2 class="section-title"><i class="fas fa-rocket"></i> Upcoming Tasks</h2>
+      {% if upcoming %}
+        <div class="upcoming-grid">
+          {% for t in upcoming %}
+          <div class="upcoming-card {% if t['target_date'] == today %}upcoming-today{% endif %}">
+            <div class="upcoming-card-top">
+              <span class="upcoming-subject">
+                {% if t['subject'] %}{{ t['subject'] }}{% else %}General{% endif %}
+              </span>
+              <span class="upcoming-date
+                {% if t['target_date'] == today %}text-orange
+                {% elif t['target_date'] < today %}text-red
+                {% else %}text-blue{% endif %}">
+                <i class="fas fa-calendar-day"></i> {{ t['target_date'] }}
+              </span>
+            </div>
+            <p class="upcoming-task-name">{{ t['task'] }}</p>
+            <div class="upcoming-card-actions">
+              <a href="{{ url_for('complete_task', pid=t['id']) }}"
+                 class="btn-complete" title="Mark Complete">
+                <i class="fas fa-check"></i> Done
+              </a>
+              <a href="{{ url_for('delete_task', pid=t['id']) }}"
+                 class="btn-delete" title="Delete"
+                 onclick="return confirm('Delete this task?')">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <i class="fas fa-check-double"></i>
+          <p>No upcoming pending tasks. You're all caught up!</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- ALL TASKS TABLE -->
+    <section class="table-card">
+      <div class="table-header-row">
+        <h2 class="section-title"><i class="fas fa-list"></i> All Tasks</h2>
+        <div class="table-controls">
+          <input type="text" id="planSearch" placeholder="🔍 Search…" class="search-input"/>
+          <select id="filterPlanStatus" class="search-input" style="width:auto;">
+            <option value="all">All</option>
+            <option value="Pending">Pending</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      {% if all_tasks %}
+      <div class="table-responsive">
+        <table class="data-table" id="planTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Task</th>
+              <th>Subject</th>
+              <th>Target Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in all_tasks %}
+            <tr class="{% if t['status'] == 'Completed' %}row-completed{% endif %}">
+              <td>{{ loop.index }}</td>
+              <td>{{ t['task'] }}</td>
+              <td>
+                {% if t['subject'] %}
+                  <span class="subject-tag">{{ t['subject'] }}</span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if t['status'] == 'Pending' and t['target_date'] < today %}
+                  <span class="text-red">
+                    <i class="fas fa-exclamation-triangle"></i> {{ t['target_date'] }}
+                  </span>
+                {% elif t['status'] == 'Pending' and t['target_date'] == today %}
+                  <span class="text-orange">
+                    <i class="fas fa-clock"></i> {{ t['target_date'] }}
+                  </span>
+                {% else %}
+                  {{ t['target_date'] }}
+                {% endif %}
+              </td>
+              <td>
+                {% if t['status'] == 'Completed' %}
+                  <span class="badge badge-good">✔ Completed</span>
+                {% elif t['target_date'] < today %}
+                  <span class="badge badge-critical">Overdue</span>
+                {% else %}
+                  <span class="badge badge-warning">Pending</span>
+                {% endif %}
+              </td>
+              <td class="action-cell">
+                {% if t['status'] == 'Pending' %}
+                <a href="{{ url_for('complete_task', pid=t['id']) }}"
+                   class="btn-complete" title="Mark Complete">
+                  <i class="fas fa-check"></i>
+                </a>
+                {% endif %}
+                <a href="{{ url_for('delete_task', pid=t['id']) }}"
+                   class="btn-delete" title="Delete"
+                   onclick="return confirm('Delete this task?')">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="empty-state">
+          <i class="fas fa-calendar-alt"></i>
+          <p>No tasks added yet. Plan your first study session above!</p>
+        </div>
+      {% endif %}
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Student Life Manager &copy; 2025 &nbsp;|&nbsp; Built with Flask &amp; SQLite</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script>
+    // Default target date to today
+    const targetInput = document.getElementById('target_date');
+    if (targetInput && !targetInput.value) {
+      targetInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    // Live search + status filter for all-tasks table
+    function filterPlan() {
+      const q      = document.getElementById('planSearch').value.toLowerCase();
+      const status = document.getElementById('filterPlanStatus').value;
+      document.querySelectorAll('#planTable tbody tr').forEach(row => {
+        const text     = row.textContent.toLowerCase();
+        const badge    = row.querySelector('.badge');
+        const rowStat  = badge ? badge.textContent.trim() : '';
+        const matchQ   = text.includes(q);
+        const matchS   = status === 'all' ||
+                         (status === 'Pending'   && (rowStat.includes('Pending') || rowStat.includes('Overdue'))) ||
+                         (status === 'Completed' && rowStat.includes('Completed'));
+        row.style.display = matchQ && matchS ? '' : 'none';
+      });
+    }
+
+    document.getElementById('planSearch').addEventListener('input', filterPlan);
+    document.getElementById('filterPlanStatus').addEventListener('change', filterPlan);
+  </script>
+</body>
+</html>
